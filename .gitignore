@@ -12,3 +12,4 @@ coco/*
 
 yolov8n.pt
 runs/*
+*.jpg
