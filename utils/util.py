@@ -1,6 +1,29 @@
 import copy
 import random
 from time import time
+import cv2
+def plot_boxes(img, detections, class_names=None, color=(0,255,0), conf_thres=0.25):
+    """
+    Draw bounding boxes and class labels on an image.
+    img: numpy array (H, W, 3)
+    detections: tensor or numpy array of shape [N, 6] (x1, y1, x2, y2, conf, cls)
+    class_names: list of class names (optional)
+    color: box color
+    conf_thres: confidence threshold for drawing
+    """
+    if isinstance(detections, torch.Tensor):
+        detections = detections.cpu().numpy()
+    for det in detections:
+        x1, y1, x2, y2, conf, cls = det
+        if conf < conf_thres:
+            continue
+        x1, y1, x2, y2 = map(int, [x1, y1, x2, y2])
+        label = str(int(cls))
+        if class_names:
+            label = class_names[int(cls)]
+        cv2.rectangle(img, (x1, y1), (x2, y2), color, 2)
+        cv2.putText(img, f'{label} {conf:.2f}', (x1, y1-10), cv2.FONT_HERSHEY_SIMPLEX, 0.7, color, 2)
+    return img
 
 import math
 import numpy

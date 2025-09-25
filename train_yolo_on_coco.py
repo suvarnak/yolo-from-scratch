@@ -17,6 +17,8 @@ def main():
     parser.add_argument('--input-size', type=int, default=640, help='Input image size')
     parser.add_argument('--data-dir', type=str, default='C:/Users/suvar/workspace/data/coco', help='COCO data directory')
     parser.add_argument('--train-list', type=str, default='instances_train2017.txt', help='COCO train image list')
+
+    parser.add_argument('--resume', type=str, default=None, help='Path to checkpoint to resume training')
     args = parser.parse_args()
 
     print(f"\nSample commands:")
@@ -67,6 +69,7 @@ def main():
         collate_fn=Dataset.collate_fn
     )
 
+
     # Model
     model = MyYolo(version=args.version).to(device)
     print(f"Model parameters: {sum(p.numel() for p in model.parameters())/1e6:.2f}M")
@@ -76,37 +79,41 @@ def main():
     optimizer = torch.optim.AdamW(model.parameters(), lr=0.001, weight_decay=0.0005)
     scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=num_epochs)
 
-    # Training loop
+    # Resume from checkpoint if specified
+    start_epoch = 0
     best_loss = float('inf')
-    for epoch in range(num_epochs):
+    if args.resume is not None and os.path.isfile(args.resume):
+        print(f"Resuming training from checkpoint: {args.resume}")
+        checkpoint = torch.load(args.resume, map_location=device)
+        model.load_state_dict(checkpoint['model_state_dict'])
+        optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
+        start_epoch = checkpoint.get('epoch', 0) + 1
+        best_loss = checkpoint.get('loss', float('inf'))
+        print(f"Resumed at epoch {start_epoch}, best loss {best_loss:.4f}")
+
+    # Training loop
+    for epoch in range(start_epoch, num_epochs):
         model.train()
         running_loss = 0.0
-        
         pbar = tqdm(train_loader, desc=f'Epoch {epoch+1}/{num_epochs}')
         for batch_idx, (imgs, targets) in enumerate(pbar):
             imgs = imgs.float().to(device)
             targets = {k: v.to(device) for k, v in targets.items()}
-            
             # Forward pass
             outputs = model(imgs)
             loss = sum(criterion(outputs, targets))
-            
             # Backward pass
             optimizer.zero_grad()
             loss.backward()
             torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=10.0)
             optimizer.step()
-            
             running_loss += loss.item()
             pbar.set_postfix({'loss': f'{loss.item():.4f}'})
-        
         # Update learning rate
         scheduler.step()
-        
         # Calculate average loss
         avg_loss = running_loss / len(train_loader)
         print(f'Epoch {epoch+1}: Loss={avg_loss:.4f}, LR={optimizer.param_groups[0]["lr"]:.6f}')
-        
         # Save best model
         if avg_loss < best_loss:
             best_loss = avg_loss
@@ -116,7 +123,6 @@ def main():
                 'optimizer_state_dict': optimizer.state_dict(),
                 'loss': avg_loss,
             }, f'{save_dir}/best.pt')
-        
         # Save checkpoint every 10 epochs
         if (epoch + 1) % 10 == 0:
             torch.save({
