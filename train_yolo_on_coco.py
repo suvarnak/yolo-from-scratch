@@ -7,8 +7,24 @@ from data.data import Dataset
 from torch.utils.data import DataLoader
 from models.model import MyYolo
 from utils import util
+import argparse
 
 def main():
+    parser = argparse.ArgumentParser(description='YOLO from Scratch Training')
+    parser.add_argument('--version', type=str, default='n', help='YOLO model version: n/s/m/l/x')
+    parser.add_argument('--epochs', type=int, default=100, help='Number of training epochs')
+    parser.add_argument('--batch-size', type=int, default=16, help='Batch size')
+    parser.add_argument('--input-size', type=int, default=640, help='Input image size')
+    parser.add_argument('--data-dir', type=str, default='C:/Users/suvar/workspace/data/coco', help='COCO data directory')
+    parser.add_argument('--train-list', type=str, default='instances_train2017.txt', help='COCO train image list')
+    args = parser.parse_args()
+
+    print(f"\nSample commands:")
+    print("python train_yolo_on_coco.py --version n --epochs 100 --batch-size 16")
+    print("python train_yolo_on_coco.py --version s --epochs 200 --batch-size 32")
+    print("python train_yolo_on_coco.py --version l --epochs 300 --batch-size 8 --input-size 1024")
+    print()
+
     # Check CUDA
     if not torch.cuda.is_available():
         print("CUDA not available. Training requires GPU.")
@@ -18,16 +34,16 @@ def main():
     print(f"Using device: {torch.cuda.get_device_name()}")
 
     # Configuration
-    data_dir = 'C:/Users/suvar/workspace/data/coco'
-    input_size = 640
-    batch_size = 16  # Reduced for stability
-    num_epochs = 5
+    data_dir = args.data_dir
+    input_size = args.input_size
+    batch_size = args.batch_size
+    num_epochs = args.epochs
     save_dir = 'runs/train'
     os.makedirs(save_dir, exist_ok=True)
 
     # Load filenames
     filenames_train = []
-    with open(f'{data_dir}/sanity_train.txt') as f:
+    with open(f'{data_dir}/{args.train_list}') as f:
         for line in f:
             filename = line.strip()
             img_path = f'{data_dir}/train2017/images/{filename}'
@@ -52,7 +68,7 @@ def main():
     )
 
     # Model
-    model = MyYolo(version='n').to(device)
+    model = MyYolo(version=args.version).to(device)
     print(f"Model parameters: {sum(p.numel() for p in model.parameters())/1e6:.2f}M")
 
     # Loss and optimizer
