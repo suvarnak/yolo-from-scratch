@@ -16,8 +16,8 @@ This project implements a YOLO object detection model from scratch using PyTorch
 - Download the COCO dataset (images and annotations) from [COCO official site](https://cocodataset.org/#download).
 - Use `data/data_conversion.py` to convert COCO annotations (`instances_train2017.json`, `instances_val2017.json`) to YOLO format. This will generate label `.txt` files and image lists.
 - Organize your data as follows:
-  - Images: `data/coco/images/train2017/`, `data/coco/images/val2017/`
-  - Labels: `data/coco/labels/train2017/`, `data/coco/labels/val2017/`
+  - Images: `data/coco/train2017/images/`, `data/coco/val2017/images/`
+  - Labels: `data/coco/train2017/labels`, `data/coco/val2017/labels/`
   - Image lists: `data/coco/instances_train2017.txt`, `data/coco/instances_val2017.txt`
 
 ### Step 2: Configure Hyperparameters
