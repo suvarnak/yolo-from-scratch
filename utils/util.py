@@ -711,4 +711,4 @@ class ComputeLoss:
         loss_cls *= self.params['cls']  # cls gain
         loss_dfl *= self.params['dfl']  # dfl gain
 
-        return loss_box, loss_cls, loss_dfl
+        return loss_box.float(), loss_cls.float(), loss_dfl.float()

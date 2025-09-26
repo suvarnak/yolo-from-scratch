@@ -9,13 +9,33 @@ from models.model import MyYolo
 from utils import util
 import argparse
 
+# Example usage: update these paths to match your actual dataset
+IMAGE_DIR = r'C:\Users\suvar\workspace\data\coco\train2017\images'
+LABEL_DIR = r'C:\Users\suvar\workspace\data\coco\train2017\labels'
+INPUT_SIZE = 640
+AUGMENT = False
+PARAMS = {
+    'mosaic': 0.0,
+    'mix_up': 0.0,
+    'flip_ud': 0.0,
+    'flip_lr': 0.0,
+    'hsv_h': 0.015,
+    'hsv_s': 0.7,
+    'hsv_v': 0.4,
+    'degrees': 0.0,
+    'scale': 0.0,
+    'shear': 0.0,
+    'translate': 0.0
+}
+
 def main():
+ 
     parser = argparse.ArgumentParser(description='YOLO from Scratch Training')
     parser.add_argument('--version', type=str, default='n', help='YOLO model version: n/s/m/l/x')
     parser.add_argument('--epochs', type=int, default=100, help='Number of training epochs')
     parser.add_argument('--batch-size', type=int, default=16, help='Batch size')
     parser.add_argument('--input-size', type=int, default=640, help='Input image size')
-    parser.add_argument('--data-dir', type=str, default='C:/Users/suvar/workspace/data/coco', help='COCO data directory')
+    parser.add_argument('--data-dir', type=str, default=r'C:\\Users\\suvar\\workspace\\data\\coco\\', help='COCO data directory')
     parser.add_argument('--train-list', type=str, default='instances_train2017.txt', help='COCO train image list')
 
     parser.add_argument('--resume', type=str, default=None, help='Path to checkpoint to resume training')
@@ -43,23 +63,28 @@ def main():
     save_dir = 'runs/train'
     os.makedirs(save_dir, exist_ok=True)
 
-    # Load filenames
-    filenames_train = []
-    with open(f'{data_dir}/{args.train_list}') as f:
-        for line in f:
-            filename = line.strip()
-            img_path = f'{data_dir}/train2017/images/{filename}'
-            if os.path.isfile(img_path):
-                filenames_train.append(img_path)
-            else:
-                print(f"Warning: Image file not found: {img_path}")
-
     # Load params
     with open('utils/hyperparams.yaml', errors='ignore') as f:
         params = yaml.safe_load(f)
 
-    # Dataset and DataLoader
-    train_data = Dataset(filenames_train, input_size, params, augment=True)
+    # Use dataloader logic from test_dataloader.py
+    # IMAGE_DIR = os.path.join(data_dir, 'train2017', 'images')
+    # INPUT_SIZE = input_size
+    PARAMS = params
+    AUGMENT = True
+    if not os.path.exists(IMAGE_DIR):
+        print(f"ERROR: Image directory '{IMAGE_DIR}' does not exist.")
+        return
+    image_files = [os.path.join(IMAGE_DIR, fname) for fname in os.listdir(IMAGE_DIR)
+                  if os.path.splitext(fname)[-1].lower() in ('.jpg', '.jpeg', '.png', '.bmp', '.webp', '.tif', '.tiff')]
+    print(f"Found {len(image_files)} images.")
+    if not image_files:
+        print("ERROR: No image files found in the directory.")
+        return
+    train_data = Dataset(image_files, INPUT_SIZE, PARAMS, AUGMENT)
+    print(f"Loaded {len(train_data)} samples.")
+    print("First 5 label shapes:", [lbl.shape for lbl in train_data.labels[:5]])
+    print("First 5 labels:", [lbl for lbl in train_data.labels[:5]])    
     train_loader = DataLoader(
         train_data, 
         batch_size=batch_size, 
@@ -101,7 +126,17 @@ def main():
             targets = {k: v.to(device) for k, v in targets.items()}
             # Forward pass
             outputs = model(imgs)
-            loss = sum(criterion(outputs, targets))
+            loss_components = criterion(outputs, targets)
+            if batch_idx == 0:
+                print("\n[Diagnostics] First batch of epoch:")
+                # ...diagnostics removed...
+                for i, out in enumerate(outputs):
+                    print(f"  Output[{i}] stats: mean={out.mean().item():.4f}, std={out.std().item():.4f}, shape={tuple(out.shape)}")
+                print("  Sample target:", {k: v[0].cpu().numpy() if hasattr(v, 'cpu') and v.shape[0] > 0 else None for k, v in targets.items()})
+                print("  Loss components:")
+                for i, lc in enumerate(loss_components):
+                    print(f"    Component {i}: value={lc.item():.4f}, type={type(lc)}")
+            loss = torch.cat([lc.view(-1) for lc in loss_components]).sum()
             # Backward pass
             optimizer.zero_grad()
             loss.backward()
